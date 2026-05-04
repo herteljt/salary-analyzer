@@ -13,8 +13,6 @@
   --border:rgba(0,0,0,0.11); --border2:rgba(0,0,0,0.20);
   --blue:#378add; --green:#1d9e75; --purple:#7f77dd; --amber:#e09020; --red:#e53e3e;
   --r:8px; --rl:12px;
-  --c0:#378add; --c1:#1d9e75; --c2:#e09020; --c3:#7f77dd; --c4:#e53e3e; --c5:#0ea5c9;
-  --c0a:rgba(55,138,221,0.18); --c1a:rgba(29,158,117,0.18); --c2a:rgba(224,144,32,0.18); --c3a:rgba(127,119,221,0.18); --c4a:rgba(229,62,62,0.18); --c5a:rgba(14,165,201,0.18);
 }
 @media (prefers-color-scheme:dark){
   :root{
@@ -55,7 +53,7 @@ button:hover { background:var(--bg2); }
 .err { color:#c0392b; font-size:13px; margin-top:8px; }
 .dbg { font-size:11px; color:var(--text2); font-family:monospace; background:var(--bg2); padding:8px; border-radius:var(--r); margin-top:8px; white-space:pre-wrap; word-break:break-all; display:none; }
 
-/* Loaded files list */
+/* File list (compare) */
 .file-list { display:flex; flex-direction:column; gap:8px; margin-bottom:1rem; }
 .file-chip { display:flex; align-items:center; justify-content:space-between; background:var(--bg2); border-radius:var(--r); padding:8px 12px; font-size:13px; }
 .file-chip-name { display:flex; align-items:center; gap:8px; }
@@ -75,6 +73,24 @@ select { font-size:13px; padding:5px 8px; border-radius:var(--r); border:0.5px s
 .pill.on { background:var(--bg-green); color:var(--text-green); border-color:var(--green); }
 .pill.on .pip { background:var(--green); }
 .col-toggles { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:1rem; }
+
+/* ── Outlier panel ── */
+.outlier-panel { background:var(--bg); border:0.5px solid var(--border); border-radius:var(--rl); padding:1.25rem 1.5rem; margin-bottom:1.25rem; }
+.outlier-header { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; cursor:pointer; user-select:none; }
+.outlier-header-left { display:flex; align-items:center; gap:10px; }
+.outlier-title { font-size:13px; font-weight:500; color:var(--text); }
+.outlier-summary { font-size:12px; color:var(--text2); }
+.outlier-chevron { font-size:14px; color:var(--text2); transition:transform .2s; }
+.outlier-chevron.open { transform:rotate(180deg); }
+.outlier-body { margin-top:1rem; display:flex; flex-direction:column; gap:1rem; }
+.outlier-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.outlier-row-label { font-size:13px; color:var(--text2); min-width:160px; }
+.outlier-removed { font-size:11px; color:var(--text-amber); background:var(--bg-amber); border-radius:99px; padding:2px 8px; white-space:nowrap; }
+/* range pair */
+.range-pair { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.range-pair input[type=number] { width:90px; font-size:13px; padding:5px 8px; border:0.5px solid var(--border2); border-radius:var(--r); background:var(--bg); color:var(--text); }
+.range-pair span { font-size:13px; color:var(--text2); }
+.fte-select { font-size:13px; }
 
 /* Stats */
 .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:1.25rem; }
@@ -128,14 +144,12 @@ tr:last-child td { border-bottom:none; }
 tbody tr:hover td { background:var(--bg2); }
 .redacted { color:var(--border2); letter-spacing:.08em; }
 
-/* Compare: dataset cards */
+/* Compare */
 .cmp-datasets { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:1.25rem; }
 .cmp-card { border-radius:var(--r); padding:1rem; border-left:4px solid; }
 .cmp-card-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
 .cmp-card-val { font-size:20px; font-weight:500; }
 .cmp-card-sub { font-size:12px; color:var(--text2); margin-top:2px; }
-
-/* Compare: summary table */
 .cmp-table { width:100%; border-collapse:collapse; font-size:13px; }
 .cmp-table th { text-align:left; padding:8px 12px; border-bottom:1px solid var(--border2); color:var(--text2); font-weight:500; white-space:nowrap; }
 .cmp-table td { padding:8px 12px; border-bottom:0.5px solid var(--border); white-space:nowrap; }
@@ -151,13 +165,14 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 <h1>Wisconsin Teacher Salary Analyzer</h1>
 <p class="sub">Data from <a href="https://publicstaffreports.dpi.wi.gov/PubStaffReport/Public/PublicReport/AllStaffReport" target="_blank">DPI Public Staff Reports</a> — all processing happens locally in your browser.</p>
 
-<!-- Tab bar -->
 <div class="tabs">
   <button class="tab active" onclick="switchTab('analyze')">Analyze</button>
   <button class="tab" onclick="switchTab('compare')">Compare datasets</button>
 </div>
 
-<!-- ════════════════════════ ANALYZE TAB ════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════
+     ANALYZE TAB
+══════════════════════════════════════════════════════ -->
 <div id="tabAnalyze">
 
   <div class="card instr">
@@ -183,6 +198,7 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 
   <div id="analyzeResults" class="hidden">
 
+    <!-- Filters -->
     <div class="filters-bar">
       <div class="filter-group">
         <label>District:</label><select id="fDistrict" onchange="applyAnalyzeFilters()"><option value="">All</option></select>
@@ -194,6 +210,66 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
       </div>
     </div>
 
+    <!-- ── Outlier controls ── -->
+    <div class="outlier-panel" id="outlierPanel">
+      <div class="outlier-header" onclick="toggleOutlierPanel()">
+        <div class="outlier-header-left">
+          <span class="outlier-title">Outlier &amp; data filters</span>
+          <span class="outlier-summary" id="outlierSummary">None active</span>
+        </div>
+        <span class="outlier-chevron" id="outlierChevron">▾</span>
+      </div>
+      <div class="outlier-body hidden" id="outlierBody">
+
+        <!-- FTE filter -->
+        <div class="outlier-row">
+          <span class="outlier-row-label">FTE minimum</span>
+          <select id="fteMin" class="fte-select" onchange="applyAnalyzeFilters()">
+            <option value="0">All (include part-time)</option>
+            <option value="0.5">≥ 0.5 FTE</option>
+            <option value="0.75">≥ 0.75 FTE</option>
+            <option value="0.9" selected>≥ 0.9 FTE (full-time)</option>
+            <option value="1.0">= 1.0 FTE only</option>
+          </select>
+          <span class="outlier-removed hidden" id="fteRemoved"></span>
+        </div>
+
+        <!-- IQR filter -->
+        <div class="outlier-row">
+          <span class="outlier-row-label">IQR outlier removal</span>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select id="iqrMult" onchange="applyAnalyzeFilters()">
+              <option value="0">Off</option>
+              <option value="1.5" selected>1.5× IQR (standard)</option>
+              <option value="2.0">2.0× IQR (moderate)</option>
+              <option value="3.0">3.0× IQR (conservative)</option>
+            </select>
+            <span style="font-size:12px;color:var(--text2);">Removes salaries below Q1 − k·IQR or above Q3 + k·IQR</span>
+          </div>
+          <span class="outlier-removed hidden" id="iqrRemoved"></span>
+        </div>
+
+        <!-- Manual salary range -->
+        <div class="outlier-row">
+          <span class="outlier-row-label">Manual salary range</span>
+          <div class="range-pair">
+            <input type="number" id="salFloor" placeholder="Min $" min="0" step="1000" oninput="applyAnalyzeFilters()">
+            <span>to</span>
+            <input type="number" id="salCeil" placeholder="Max $" min="0" step="1000" oninput="applyAnalyzeFilters()">
+          </div>
+          <span class="outlier-removed hidden" id="manualRemoved"></span>
+        </div>
+
+        <!-- Reset -->
+        <div>
+          <button onclick="resetOutlierFilters()" style="font-size:12px;padding:4px 12px;">Reset all filters</button>
+          <span style="font-size:11px;color:var(--text2);margin-left:10px;" id="totalRemoved"></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Stats -->
     <div class="stat-grid">
       <div class="stat"><div class="stat-lbl">Records</div><div class="stat-val" id="sCount">—</div></div>
       <div class="stat"><div class="stat-lbl">Median salary</div><div class="stat-val" id="sMedian">—</div></div>
@@ -242,7 +318,9 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 </div><!-- /tabAnalyze -->
 
 
-<!-- ════════════════════════ COMPARE TAB ════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════
+     COMPARE TAB
+══════════════════════════════════════════════════════ -->
 <div id="tabCompare" class="hidden">
 
   <div class="card instr">
@@ -253,7 +331,6 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
     </ol>
   </div>
 
-  <!-- Multi-file loader -->
   <div class="card">
     <div class="card-title">Add a dataset</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
@@ -269,7 +346,6 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
     <div id="dbgC" class="dbg"></div>
   </div>
 
-  <!-- Loaded datasets -->
   <div id="cmpFileList" class="hidden">
     <div class="card">
       <div class="card-title">Loaded datasets</div>
@@ -279,42 +355,22 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
   </div>
 
   <div id="compareResults" class="hidden">
-
-    <!-- Summary stat cards per dataset -->
     <div id="cmpStatCards" class="cmp-datasets"></div>
-
-    <!-- Summary table -->
     <div class="card">
       <div class="card-title">Summary comparison</div>
       <div class="table-wrap"><table class="cmp-table" id="cmpSummaryTable"></table></div>
     </div>
-
-    <!-- Median salary by experience bracket, all datasets overlaid -->
+    <div class="card"><div class="chart-lbl">Median salary by experience bracket</div><div class="chart-box-tall"><canvas id="cCmpBracket"></canvas></div></div>
+    <div class="card"><div class="chart-lbl">Salary distribution comparison</div><div class="chart-box-tall"><canvas id="cCmpDist"></canvas></div></div>
     <div class="card">
-      <div class="chart-lbl">Median salary by experience bracket</div>
-      <div class="chart-box-tall"><canvas id="cCmpBracket"></canvas></div>
-    </div>
-
-    <!-- Salary distribution overlay -->
-    <div class="card">
-      <div class="chart-lbl">Salary distribution comparison</div>
-      <div class="chart-box-tall"><canvas id="cCmpDist"></canvas></div>
-    </div>
-
-    <!-- Year-over-year trend (shown when datasets share a district across years) -->
-    <div class="card" id="cmpYoyCard">
       <div class="chart-lbl">Median salary trend across datasets</div>
       <div class="chart-box"><canvas id="cCmpTrend"></canvas></div>
     </div>
-
-    <!-- Salary spread (max–min) by bracket -->
     <div class="card">
       <div class="chart-lbl">Salary schedule spread (max − min) by experience bracket</div>
       <div class="chart-box"><canvas id="cCmpSpread"></canvas></div>
-      <p style="font-size:11px;color:var(--text2);margin-top:8px;">A wider spread means a less compressed salary schedule — larger gap between the lowest and highest earners in each experience range.</p>
+      <p style="font-size:11px;color:var(--text2);margin-top:8px;">A wider spread means a less compressed salary schedule — larger gap between lowest and highest earner in each experience range.</p>
     </div>
-
-    <!-- Predictor across datasets -->
     <div class="card">
       <div class="card-title">Salary estimator — compare across datasets</div>
       <div class="pred-layout">
@@ -331,8 +387,8 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
         <div id="cmpPredResult" class="pred-result"><div class="pred-empty">Add datasets to see comparison.</div></div>
       </div>
     </div>
+  </div>
 
-  </div><!-- /compareResults -->
 </div><!-- /tabCompare -->
 
 <footer>All processing is local — no data leaves your device.<br>
@@ -340,19 +396,15 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 </div><!-- /page -->
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════
-// SHARED CONSTANTS & STATE
-// ═══════════════════════════════════════════════════════════════════════
-const PALETTE = [
-  {solid:'#378add',fill:'rgba(55,138,221,0.18)'},
-  {solid:'#1d9e75',fill:'rgba(29,158,117,0.18)'},
-  {solid:'#e09020',fill:'rgba(224,144,32,0.18)'},
-  {solid:'#7f77dd',fill:'rgba(127,119,221,0.18)'},
-  {solid:'#e53e3e',fill:'rgba(229,62,62,0.18)'},
-  {solid:'#0ea5c9',fill:'rgba(14,165,201,0.18)'},
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PALETTE=[
+  {solid:'#378add',fill:'rgba(55,138,221,0.18)'},{solid:'#1d9e75',fill:'rgba(29,158,117,0.18)'},
+  {solid:'#e09020',fill:'rgba(224,144,32,0.18)'},{solid:'#7f77dd',fill:'rgba(127,119,221,0.18)'},
+  {solid:'#e53e3e',fill:'rgba(229,62,62,0.18)'},{solid:'#0ea5c9',fill:'rgba(14,165,201,0.18)'},
 ];
-
-const COLS = [
+const COLS=[
   {key:'last',  label:'Last name', defaultOn:false},
   {key:'first', label:'First name',defaultOn:false},
   {key:'dist',  label:'District',  defaultOn:true},
@@ -363,27 +415,102 @@ const COLS = [
   {key:'fte',   label:'FTE',       defaultOn:false},
   {key:'year',  label:'Year',      defaultOn:false},
 ];
-let colVisible={};
-COLS.forEach(c=>colVisible[c.key]=c.defaultOn);
+let colVisible={};COLS.forEach(c=>colVisible[c.key]=c.defaultOn);
+const BRS=[{l:'0–3',lo:0,hi:3},{l:'4–7',lo:4,hi:7},{l:'8–12',lo:8,hi:12},{l:'13–17',lo:13,hi:17},{l:'18–24',lo:18,hi:24},{l:'25+',lo:25,hi:999}];
 
-// Analyze state
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
 let analyzeAll=[], analyzeFiltered=[], analyzeCharts={}, showNames=false, aRegCache={};
-
-// Compare state  — array of {label, color, data[]}
 let datasets=[], cmpCharts={}, cmpPendingFile=null;
+let outlierPanelOpen=false;
 
-// ═══════════════════════════════════════════════════════════════════════
-// TAB SWITCHING
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
 function switchTab(t){
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['analyze','compare'][i]===t));
   document.getElementById('tabAnalyze').classList.toggle('hidden',t!=='analyze');
   document.getElementById('tabCompare').classList.toggle('hidden',t!=='compare');
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// CSV PARSING (shared)
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// OUTLIER PANEL
+// ═══════════════════════════════════════════
+function toggleOutlierPanel(){
+  outlierPanelOpen=!outlierPanelOpen;
+  document.getElementById('outlierBody').classList.toggle('hidden',!outlierPanelOpen);
+  document.getElementById('outlierChevron').classList.toggle('open',outlierPanelOpen);
+}
+
+function resetOutlierFilters(){
+  document.getElementById('fteMin').value='0.9';
+  document.getElementById('iqrMult').value='1.5';
+  document.getElementById('salFloor').value='';
+  document.getElementById('salCeil').value='';
+  applyAnalyzeFilters();
+}
+
+// Applies FTE, IQR, and manual range to analyzeAll → analyzeFiltered,
+// then updates removed-count badges and rerenders.
+function applyOutliers(data){
+  const fteMin=parseFloat(document.getElementById('fteMin').value)||0;
+  const iqrK=parseFloat(document.getElementById('iqrMult').value)||0;
+  const salFloor=parseFloat(document.getElementById('salFloor').value)||0;
+  const salCeil=parseFloat(document.getElementById('salCeil').value)||Infinity;
+
+  let after=data;
+  const total=data.length;
+
+  // 1. FTE
+  let afterFte=after;
+  if(fteMin>0) afterFte=after.filter(d=>d.fte===null||d.fte>=fteMin);
+  const fteN=after.length-afterFte.length;
+  showBadge('fteRemoved',fteN,'FTE');
+  after=afterFte;
+
+  // 2. IQR
+  let afterIqr=after;
+  if(iqrK>0 && after.length>4){
+    const sals=[...after.map(d=>d.sal)].sort((a,b)=>a-b);
+    const q1=pctile(sals,25),q3=pctile(sals,75),iqr=q3-q1;
+    const lo=q1-iqrK*iqr, hi=q3+iqrK*iqr;
+    afterIqr=after.filter(d=>d.sal>=lo&&d.sal<=hi);
+  }
+  const iqrN=after.length-afterIqr.length;
+  showBadge('iqrRemoved',iqrN,'IQR');
+  after=afterIqr;
+
+  // 3. Manual range
+  let afterMan=after;
+  if(salFloor>0) afterMan=afterMan.filter(d=>d.sal>=salFloor);
+  if(salCeil<Infinity) afterMan=afterMan.filter(d=>d.sal<=salCeil);
+  const manN=after.length-afterMan.length;
+  showBadge('manualRemoved',manN,'manual');
+  after=afterMan;
+
+  // Summary
+  const totalRemoved=total-after.length;
+  const sumEl=document.getElementById('outlierSummary');
+  const totEl=document.getElementById('totalRemoved');
+  if(totalRemoved===0){
+    sumEl.textContent='None active';totEl.textContent='';
+  } else {
+    sumEl.textContent=`${totalRemoved.toLocaleString()} records excluded`;
+    totEl.textContent=`${totalRemoved.toLocaleString()} of ${total.toLocaleString()} records excluded total`;
+  }
+  return after;
+}
+
+function showBadge(id,n,label){
+  const el=document.getElementById(id);
+  if(n>0){el.textContent=`${n} removed by ${label}`;el.classList.remove('hidden');}
+  else el.classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════
+// CSV PARSING
+// ═══════════════════════════════════════════
 function parseCSVLine(line){
   const res=[];let cur='',inQ=false;
   for(let i=0;i<line.length;i++){
@@ -413,15 +540,15 @@ function csvToRows(raw){
   if(lines.length<2)return null;
   const{hi,hdrs}=findHeaderRow(lines);
   const ix={
-    last: findCol(hdrs,['last name','lastname','last_name']),
+    last:findCol(hdrs,['last name','lastname','last_name']),
     first:findCol(hdrs,['first name','firstname','first_name']),
-    dist: findCol(hdrs,['hiring agency','hiringagency','hiring_agency','agency name','agency','district']),
-    pos:  findCol(hdrs,['assignment position','position','assignment_position']),
-    texp: findCol(hdrs,['total experience','total_experience','total exp','totalexperience']),
-    lexp: findCol(hdrs,['local experience','local_experience','local exp','localexperience']),
-    sal:  findCol(hdrs,['degree, contract','degree,contract','contract salary','contract','total salary','totalsalary','salary']),
-    fte:  findCol(hdrs,['fte']),
-    year: findCol(hdrs,['school year','schoolyear','school_year','year']),
+    dist:findCol(hdrs,['hiring agency','hiringagency','hiring_agency','agency name','agency','district']),
+    pos:findCol(hdrs,['assignment position','position','assignment_position']),
+    texp:findCol(hdrs,['total experience','total_experience','total exp','totalexperience']),
+    lexp:findCol(hdrs,['local experience','local_experience','local exp','localexperience']),
+    sal:findCol(hdrs,['degree, contract','degree,contract','contract salary','contract','total salary','totalsalary','salary']),
+    fte:findCol(hdrs,['fte']),
+    year:findCol(hdrs,['school year','schoolyear','school_year','year']),
   };
   if(ix.sal===-1)return{error:'Cannot find salary column. Columns: '+hdrs.join(', '),hdrs};
   const rows=[];
@@ -432,10 +559,10 @@ function csvToRows(raw){
     if(isNaN(sal)||sal<=0)continue;
     const texp=ix.texp>=0?cleanNum(c[ix.texp]):NaN;
     const lexp=ix.lexp>=0?cleanNum(c[ix.lexp]):NaN;
-    const fte= ix.fte>=0?cleanNum(c[ix.fte]):NaN;
+    const fte=ix.fte>=0?cleanNum(c[ix.fte]):NaN;
     rows.push({
-      last: ix.last>=0?c[ix.last]:'',first:ix.first>=0?c[ix.first]:'',
-      dist: ix.dist>=0?c[ix.dist]:'',pos:ix.pos>=0?c[ix.pos]:'',
+      last:ix.last>=0?c[ix.last]:'',first:ix.first>=0?c[ix.first]:'',
+      dist:ix.dist>=0?c[ix.dist]:'',pos:ix.pos>=0?c[ix.pos]:'',
       texp:isNaN(texp)?null:texp,lexp:isNaN(lexp)?null:lexp,
       sal,fte:isNaN(fte)?null:fte,year:ix.year>=0?c[ix.year]:'',
     });
@@ -443,9 +570,9 @@ function csvToRows(raw){
   return{rows,hdrs,hi};
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// MATH HELPERS
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// MATH
+// ═══════════════════════════════════════════
 function fmt(n){return n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});}
 function med(arr){const s=[...arr].sort((a,b)=>a-b),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;}
 function pctile(sorted,p){if(!sorted.length)return 0;const idx=(p/100)*(sorted.length-1),lo=Math.floor(idx),hi=Math.ceil(idx);return sorted[lo]+(sorted[hi]-sorted[lo])*(idx-lo);}
@@ -465,11 +592,10 @@ function getReg(data,cache){
   const pts=data.filter(d=>d.texp!==null).map(d=>[d.texp,d.sal]);
   return(cache[k]={reg:ols(pts),n:pts.length});
 }
-const BRS=[{l:'0–3',lo:0,hi:3},{l:'4–7',lo:4,hi:7},{l:'8–12',lo:8,hi:12},{l:'13–17',lo:13,hi:17},{l:'18–24',lo:18,hi:24},{l:'25+',lo:25,hi:999}];
 
-// ═══════════════════════════════════════════════════════════════════════
-// ANALYZE TAB
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// ANALYZE TAB — file input
+// ═══════════════════════════════════════════
 document.getElementById('fileInputA').addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();r.onload=ev=>{document.getElementById('csvInputA').value=ev.target.result;parseAnalyze();};r.readAsText(f);
@@ -512,17 +638,27 @@ function setOpts(id,vals){
   if(vals.includes(cur))sel.value=cur;
 }
 function applyAnalyzeFilters(){
-  const d=document.getElementById('fDistrict').value,p=document.getElementById('fPosition').value,y=document.getElementById('fYear').value;
-  analyzeFiltered=analyzeAll;
-  if(d)analyzeFiltered=analyzeFiltered.filter(r=>r.dist===d);
-  if(p)analyzeFiltered=analyzeFiltered.filter(r=>r.pos===p);
-  if(y)analyzeFiltered=analyzeFiltered.filter(r=>r.year===y);
-  aRegCache={};renderAnalyze();runPredictor();
+  const d=document.getElementById('fDistrict').value;
+  const p=document.getElementById('fPosition').value;
+  const y=document.getElementById('fYear').value;
+  // First: dropdown filters on the raw dataset
+  let base=analyzeAll;
+  if(d)base=base.filter(r=>r.dist===d);
+  if(p)base=base.filter(r=>r.pos===p);
+  if(y)base=base.filter(r=>r.year===y);
+  // Then: outlier filters
+  analyzeFiltered=applyOutliers(base);
+  aRegCache={};
+  renderAnalyze();
+  runPredictor();
 }
+
+// ═══════════════════════════════════════════
+// ANALYZE TAB — name toggle + col toggles
+// ═══════════════════════════════════════════
 function toggleNames(){
   showNames=!showNames;
-  const el=document.getElementById('nameToggle');
-  el.classList.toggle('on',showNames);
+  document.getElementById('nameToggle').classList.toggle('on',showNames);
   document.getElementById('nameToggleTxt').textContent=showNames?'Hide names':'Show names';
   renderTable();
 }
@@ -536,6 +672,10 @@ function buildColToggles(){
     wrap.appendChild(pill);
   });
 }
+
+// ═══════════════════════════════════════════
+// ANALYZE TAB — predictor
+// ═══════════════════════════════════════════
 function syncExp(src){
   const s=document.getElementById('predSlider'),n=document.getElementById('predNum');
   if(src==='slider')n.value=parseInt(s.value);
@@ -575,6 +715,9 @@ function runPredictor(){
 }
 function prow(l,v){return`<div class="pred-row"><span class="pred-row-lbl">${l}</span><span class="pred-row-val">${v}</span></div>`;}
 
+// ═══════════════════════════════════════════
+// ANALYZE TAB — charts + table
+// ═══════════════════════════════════════════
 function renderAnalyze(){
   const data=analyzeFiltered,sals=data.map(d=>d.sal).sort((a,b)=>a-b);
   document.getElementById('sCount').textContent=data.length.toLocaleString();
@@ -634,9 +777,9 @@ function renderTable(){
 function showErrA(m){const e=document.getElementById('errA');e.textContent=m;e.classList.remove('hidden');}
 function clearErrA(){document.getElementById('errA').classList.add('hidden');}
 
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // COMPARE TAB
-// ═══════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 document.getElementById('fileInputC').addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
   cmpPendingFile=f;
@@ -646,9 +789,8 @@ document.getElementById('fileInputC').addEventListener('change',e=>{
 
 function addDataset(){
   const label=document.getElementById('cmpLabel').value.trim()||('Dataset '+(datasets.length+1));
-  const fileInput=document.getElementById('fileInputC');
-  if(!cmpPendingFile&&!fileInput.files[0]){showErrC('Please choose a CSV file first.');return;}
-  const file=cmpPendingFile||fileInput.files[0];
+  if(!cmpPendingFile){showErrC('Please choose a CSV file first.');return;}
+  const file=cmpPendingFile;
   const r=new FileReader();
   r.onload=ev=>{
     const raw=ev.target.result.trim();
@@ -660,45 +802,33 @@ function addDataset(){
     document.getElementById('dbgC').style.display='block';
     const color=PALETTE[datasets.length%PALETTE.length];
     datasets.push({label,color,data:result.rows});
-    // Reset input
     cmpPendingFile=null;
     document.getElementById('cmpFileName').textContent='No file chosen';
     document.getElementById('cmpLabel').value='';
-    fileInput.value='';
+    document.getElementById('fileInputC').value='';
     clearErrC();
     renderCompare();
   };
   r.readAsText(file);
 }
-
-function removeDataset(i){
-  datasets.splice(i,1);renderCompare();
-}
-function clearDatasets(){
-  datasets=[];renderCompare();
-}
-
+function removeDataset(i){datasets.splice(i,1);renderCompare();}
+function clearDatasets(){datasets=[];renderCompare();}
 function killC(k){if(cmpCharts[k]){cmpCharts[k].destroy();delete cmpCharts[k];}}
 
 function renderCompare(){
   const hasData=datasets.length>0;
   document.getElementById('cmpFileList').classList.toggle('hidden',!hasData);
   document.getElementById('compareResults').classList.toggle('hidden',datasets.length<1);
-
-  // File chips
-  const list=document.getElementById('fileListItems');
-  list.innerHTML='';
+  const list=document.getElementById('fileListItems');list.innerHTML='';
   datasets.forEach((ds,i)=>{
     const chip=document.createElement('div');chip.className='file-chip';
     chip.innerHTML=`<div class="file-chip-name"><span class="file-dot" style="background:${ds.color.solid}"></span><span><strong>${ds.label}</strong> — ${ds.data.length.toLocaleString()} records</span></div><span class="file-chip-remove" onclick="removeDataset(${i})" title="Remove">×</span>`;
     list.appendChild(chip);
   });
-
   if(datasets.length<1)return;
 
   // Stat cards
-  const cards=document.getElementById('cmpStatCards');
-  cards.innerHTML='';
+  const cards=document.getElementById('cmpStatCards');cards.innerHTML='';
   datasets.forEach(ds=>{
     const sals=ds.data.map(d=>d.sal).sort((a,b)=>a-b);
     const card=document.createElement('div');card.className='cmp-card';
@@ -708,69 +838,36 @@ function renderCompare(){
   });
 
   // Summary table
-  const tbl=document.getElementById('cmpSummaryTable');
-  tbl.innerHTML='';
+  const tbl=document.getElementById('cmpSummaryTable');tbl.innerHTML='';
   const hdr=`<thead><tr><th>Dataset</th><th>Records</th><th>Min</th><th>25th pct</th><th>Median</th><th>75th pct</th><th>Max</th><th>Avg exp</th></tr></thead>`;
   let tbody='<tbody>';
   datasets.forEach(ds=>{
     const sals=ds.data.map(d=>d.sal).sort((a,b)=>a-b);
     const exps=ds.data.filter(d=>d.texp!==null);
     const avgExp=exps.length?(exps.reduce((a,b)=>a+b.texp,0)/exps.length).toFixed(1)+' yrs':'—';
-    tbody+=`<tr>
-      <td><span class="cmp-swatch" style="background:${ds.color.solid}"></span>${ds.label}</td>
-      <td>${ds.data.length.toLocaleString()}</td>
-      <td>${fmt(Math.min(...sals))}</td>
-      <td>${fmt(Math.round(pctile(sals,25)))}</td>
-      <td><strong>${fmt(Math.round(med(sals)))}</strong></td>
-      <td>${fmt(Math.round(pctile(sals,75)))}</td>
-      <td>${fmt(Math.max(...sals))}</td>
-      <td>${avgExp}</td>
-    </tr>`;
+    tbody+=`<tr><td><span class="cmp-swatch" style="background:${ds.color.solid}"></span>${ds.label}</td><td>${ds.data.length.toLocaleString()}</td><td>${fmt(Math.min(...sals))}</td><td>${fmt(Math.round(pctile(sals,25)))}</td><td><strong>${fmt(Math.round(med(sals)))}</strong></td><td>${fmt(Math.round(pctile(sals,75)))}</td><td>${fmt(Math.max(...sals))}</td><td>${avgExp}</td></tr>`;
   });
-  tbody+='</tbody>';
-  tbl.innerHTML=hdr+tbody;
+  tbl.innerHTML=hdr+tbody+'</tbody>';
 
-  // Bracket chart (median per dataset)
+  // Bracket chart
   killC('bracket');
-  const bracketDs=datasets.map(ds=>({
-    label:ds.label,
-    backgroundColor:ds.color.fill,
-    borderColor:ds.color.solid,
-    borderWidth:2,
-    data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=3?Math.round(med(s)):null;})
-  }));
-  cmpCharts.bracket=new Chart(document.getElementById('cCmpBracket'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:bracketDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.bracket=new Chart(document.getElementById('cCmpBracket'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:datasets.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=3?Math.round(med(s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
   // Distribution overlay
   killC('dist');
-  const bk=5000;
-  const allSals=datasets.flatMap(ds=>ds.data.map(d=>d.sal));
+  const bk=5000,allSals=datasets.flatMap(ds=>ds.data.map(d=>d.sal));
   const gMin=Math.floor(Math.min(...allSals)/bk)*bk,gMax=Math.ceil(Math.max(...allSals)/bk)*bk;
-  const labels=[];for(let v=gMin;v<gMax;v+=bk)labels.push('$'+(v/1000).toFixed(0)+'k');
-  const distDs=datasets.map(ds=>({
-    label:ds.label,type:'line',fill:false,
-    borderColor:ds.color.solid,backgroundColor:ds.color.fill,borderWidth:2,pointRadius:2,tension:0.4,
-    data:labels.map((_,li)=>{
-      const lo=gMin+li*bk,hi=lo+bk;
-      return ds.data.filter(d=>d.sal>=lo&&d.sal<hi).length;
-    })
-  }));
-  cmpCharts.dist=new Chart(document.getElementById('cCmpDist'),{type:'line',data:{labels,datasets:distDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}}},scales:{x:{ticks:{color:'#888',font:{size:10},maxRotation:45,autoSkip:true},grid:{display:false}},y:{ticks:{color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'},title:{display:true,text:'# of staff',font:{size:11}}}}}});
+  const dlabels=[];for(let v=gMin;v<gMax;v+=bk)dlabels.push('$'+(v/1000).toFixed(0)+'k');
+  cmpCharts.dist=new Chart(document.getElementById('cCmpDist'),{type:'line',data:{labels:dlabels,datasets:datasets.map(ds=>({label:ds.label,type:'line',fill:false,borderColor:ds.color.solid,backgroundColor:ds.color.fill,borderWidth:2,pointRadius:2,tension:0.4,data:dlabels.map((_,li)=>{const lo=gMin+li*bk,hi=lo+bk;return ds.data.filter(d=>d.sal>=lo&&d.sal<hi).length;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}}},scales:{x:{ticks:{color:'#888',font:{size:10},maxRotation:45,autoSkip:true},grid:{display:false}},y:{ticks:{color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'},title:{display:true,text:'# of staff',font:{size:11}}}}}});
 
-  // Trend line (median salary per dataset, in order added)
+  // Trend
   killC('trend');
-  const trendData=datasets.map(ds=>Math.round(med(ds.data.map(d=>d.sal))));
-  cmpCharts.trend=new Chart(document.getElementById('cCmpTrend'),{type:'line',data:{labels:datasets.map(d=>d.label),datasets:[{label:'Median salary',data:trendData,borderColor:PALETTE[0].solid,backgroundColor:PALETTE[0].fill,borderWidth:2,pointRadius:5,pointHoverRadius:7,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.trend=new Chart(document.getElementById('cCmpTrend'),{type:'line',data:{labels:datasets.map(d=>d.label),datasets:[{label:'Median salary',data:datasets.map(ds=>Math.round(med(ds.data.map(d=>d.sal)))),borderColor:PALETTE[0].solid,backgroundColor:PALETTE[0].fill,borderWidth:2,pointRadius:5,pointHoverRadius:7,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
-  // Spread (max–min) per bracket per dataset
+  // Spread
   killC('spread');
-  const spreadDs=datasets.map(ds=>({
-    label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,
-    data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=4?Math.round(Math.max(...s)-Math.min(...s)):null;})
-  }));
-  cmpCharts.spread=new Chart(document.getElementById('cCmpSpread'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:spreadDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.spread=new Chart(document.getElementById('cCmpSpread'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:datasets.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=4?Math.round(Math.max(...s)-Math.min(...s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
-  // Predictor
   runCmpPredictor();
 }
 
