@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wisconsin Teacher Salary Analyzer</title>
+<title>Wisconsin Teacher Salary Analyzer v1.5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -162,7 +162,10 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 <body>
 <div class="page">
 
-<h1>Wisconsin Teacher Salary Analyzer</h1>
+<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;">
+  <h1>Wisconsin Teacher Salary Analyzer</h1>
+  <span style="font-size:11px;font-weight:600;color:var(--text-blue);background:var(--bg-blue);border-radius:99px;padding:2px 10px;letter-spacing:0.05em;">v1.5</span>
+</div>
 <p class="sub">Data from <a href="https://publicstaffreports.dpi.wi.gov/PubStaffReport/Public/PublicReport/AllStaffReport" target="_blank">DPI Public Staff Reports</a> — all processing happens locally in your browser.</p>
 
 <div class="tabs">
@@ -354,6 +357,53 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
     </div>
   </div>
 
+  <!-- Compare outlier panel -->
+  <div class="outlier-panel hidden" id="cmpOutlierPanel">
+    <div class="outlier-header" onclick="toggleCmpOutlierPanel()">
+      <div class="outlier-header-left">
+        <span class="outlier-title">Outlier &amp; data filters</span>
+        <span class="outlier-summary" id="cmpOutlierSummary">None active</span>
+      </div>
+      <span class="outlier-chevron" id="cmpOutlierChevron">▾</span>
+    </div>
+    <div class="outlier-body hidden" id="cmpOutlierBody">
+      <div class="outlier-row">
+        <span class="outlier-row-label">FTE minimum</span>
+        <select id="cFteMin" class="fte-select" onchange="renderCompare()">
+          <option value="0">All (include part-time)</option>
+          <option value="0.5">≥ 0.5 FTE</option>
+          <option value="0.75">≥ 0.75 FTE</option>
+          <option value="0.9" selected>≥ 0.9 FTE (full-time)</option>
+          <option value="1.0">= 1.0 FTE only</option>
+        </select>
+      </div>
+      <div class="outlier-row">
+        <span class="outlier-row-label">IQR outlier removal</span>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <select id="cIqrMult" onchange="renderCompare()">
+            <option value="0">Off</option>
+            <option value="1.5" selected>1.5× IQR (standard)</option>
+            <option value="2.0">2.0× IQR (moderate)</option>
+            <option value="3.0">3.0× IQR (conservative)</option>
+          </select>
+          <span style="font-size:12px;color:var(--text2);">Removes salaries below Q1 − k·IQR or above Q3 + k·IQR</span>
+        </div>
+      </div>
+      <div class="outlier-row">
+        <span class="outlier-row-label">Manual salary range</span>
+        <div class="range-pair">
+          <input type="number" id="cSalFloor" placeholder="Min $" min="0" step="1000" oninput="renderCompare()">
+          <span>to</span>
+          <input type="number" id="cSalCeil" placeholder="Max $" min="0" step="1000" oninput="renderCompare()">
+        </div>
+      </div>
+      <div>
+        <button onclick="resetCmpOutlierFilters()" style="font-size:12px;padding:4px 12px;">Reset all filters</button>
+        <span style="font-size:11px;color:var(--text2);margin-left:10px;" id="cmpTotalRemoved"></span>
+      </div>
+    </div>
+  </div>
+
   <div id="compareResults" class="hidden">
     <div id="cmpStatCards" class="cmp-datasets"></div>
     <div class="card">
@@ -391,7 +441,7 @@ footer { text-align:center; font-size:12px; color:var(--text2); margin-top:2rem;
 
 </div><!-- /tabCompare -->
 
-<footer>All processing is local — no data leaves your device.<br>
+<footer>All processing is local — no data leaves your device. &nbsp;·&nbsp; v1.5<br>
   Source: <a href="https://publicstaffreports.dpi.wi.gov" target="_blank">Wisconsin DPI Public Staff Reports</a></footer>
 </div><!-- /page -->
 
@@ -424,6 +474,7 @@ const BRS=[{l:'0–3',lo:0,hi:3},{l:'4–7',lo:4,hi:7},{l:'8–12',lo:8,hi:12},{
 let analyzeAll=[], analyzeFiltered=[], analyzeCharts={}, showNames=false, aRegCache={};
 let datasets=[], cmpCharts={}, cmpPendingFile=null;
 let outlierPanelOpen=false;
+let outlierPanelOpen=false;
 
 // ═══════════════════════════════════════════
 // TABS
@@ -451,54 +502,50 @@ function resetOutlierFilters(){
   applyAnalyzeFilters();
 }
 
-// Applies FTE, IQR, and manual range to analyzeAll → analyzeFiltered,
-// then updates removed-count badges and rerenders.
+// Core outlier filter — takes data and explicit settings, returns filtered array.
+function applyOutliersToData(data, fteMin, iqrK, salFloor, salCeil){
+  let after=data;
+  if(fteMin>0) after=after.filter(d=>d.fte===null||d.fte>=fteMin);
+  if(iqrK>0 && after.length>4){
+    const sals=[...after.map(d=>d.sal)].sort((a,b)=>a-b);
+    const q1=pctile(sals,25),q3=pctile(sals,75),iqr=q3-q1;
+    const lo=q1-iqrK*iqr,hi=q3+iqrK*iqr;
+    after=after.filter(d=>d.sal>=lo&&d.sal<=hi);
+  }
+  if(salFloor>0) after=after.filter(d=>d.sal>=salFloor);
+  if(salCeil<Infinity) after=after.filter(d=>d.sal<=salCeil);
+  return after;
+}
+
+// Analyze-tab wrapper — reads its own controls, updates badges, returns filtered data.
 function applyOutliers(data){
   const fteMin=parseFloat(document.getElementById('fteMin').value)||0;
   const iqrK=parseFloat(document.getElementById('iqrMult').value)||0;
   const salFloor=parseFloat(document.getElementById('salFloor').value)||0;
   const salCeil=parseFloat(document.getElementById('salCeil').value)||Infinity;
-
-  let after=data;
   const total=data.length;
 
-  // 1. FTE
-  let afterFte=after;
-  if(fteMin>0) afterFte=after.filter(d=>d.fte===null||d.fte>=fteMin);
-  const fteN=after.length-afterFte.length;
-  showBadge('fteRemoved',fteN,'FTE');
-  after=afterFte;
+  let after=data;
+  const afterFte=fteMin>0?after.filter(d=>d.fte===null||d.fte>=fteMin):after;
+  showBadge('fteRemoved',after.length-afterFte.length,'FTE'); after=afterFte;
 
-  // 2. IQR
   let afterIqr=after;
-  if(iqrK>0 && after.length>4){
+  if(iqrK>0&&after.length>4){
     const sals=[...after.map(d=>d.sal)].sort((a,b)=>a-b);
     const q1=pctile(sals,25),q3=pctile(sals,75),iqr=q3-q1;
-    const lo=q1-iqrK*iqr, hi=q3+iqrK*iqr;
+    const lo=q1-iqrK*iqr,hi=q3+iqrK*iqr;
     afterIqr=after.filter(d=>d.sal>=lo&&d.sal<=hi);
   }
-  const iqrN=after.length-afterIqr.length;
-  showBadge('iqrRemoved',iqrN,'IQR');
-  after=afterIqr;
+  showBadge('iqrRemoved',after.length-afterIqr.length,'IQR'); after=afterIqr;
 
-  // 3. Manual range
-  let afterMan=after;
-  if(salFloor>0) afterMan=afterMan.filter(d=>d.sal>=salFloor);
-  if(salCeil<Infinity) afterMan=afterMan.filter(d=>d.sal<=salCeil);
-  const manN=after.length-afterMan.length;
-  showBadge('manualRemoved',manN,'manual');
-  after=afterMan;
+  const afterMan=after.filter(d=>(salFloor<=0||d.sal>=salFloor)&&(salCeil>=Infinity||d.sal<=salCeil));
+  showBadge('manualRemoved',after.length-afterMan.length,'manual'); after=afterMan;
 
-  // Summary
   const totalRemoved=total-after.length;
   const sumEl=document.getElementById('outlierSummary');
   const totEl=document.getElementById('totalRemoved');
-  if(totalRemoved===0){
-    sumEl.textContent='None active';totEl.textContent='';
-  } else {
-    sumEl.textContent=`${totalRemoved.toLocaleString()} records excluded`;
-    totEl.textContent=`${totalRemoved.toLocaleString()} of ${total.toLocaleString()} records excluded total`;
-  }
+  if(totalRemoved===0){sumEl.textContent='None active';totEl.textContent='';}
+  else{sumEl.textContent=`${totalRemoved.toLocaleString()} records excluded`;totEl.textContent=`${totalRemoved.toLocaleString()} of ${total.toLocaleString()} records excluded total`;}
   return after;
 }
 
@@ -506,6 +553,36 @@ function showBadge(id,n,label){
   const el=document.getElementById(id);
   if(n>0){el.textContent=`${n} removed by ${label}`;el.classList.remove('hidden');}
   else el.classList.add('hidden');
+}
+
+// Compare-tab outlier helpers
+let cmpOutlierPanelOpen=false;
+function toggleCmpOutlierPanel(){
+  cmpOutlierPanelOpen=!cmpOutlierPanelOpen;
+  document.getElementById('cmpOutlierBody').classList.toggle('hidden',!cmpOutlierPanelOpen);
+  document.getElementById('cmpOutlierChevron').classList.toggle('open',cmpOutlierPanelOpen);
+}
+function resetCmpOutlierFilters(){
+  document.getElementById('cFteMin').value='0.9';
+  document.getElementById('cIqrMult').value='1.5';
+  document.getElementById('cSalFloor').value='';
+  document.getElementById('cSalCeil').value='';
+  renderCompare();
+}
+function getCmpOutlierSettings(){
+  return{
+    fteMin:parseFloat(document.getElementById('cFteMin').value)||0,
+    iqrK:parseFloat(document.getElementById('cIqrMult').value)||0,
+    salFloor:parseFloat(document.getElementById('cSalFloor').value)||0,
+    salCeil:parseFloat(document.getElementById('cSalCeil').value)||Infinity,
+  };
+}
+function updateCmpOutlierSummary(totalBefore, totalAfter){
+  const removed=totalBefore-totalAfter;
+  const sumEl=document.getElementById('cmpOutlierSummary');
+  const totEl=document.getElementById('cmpTotalRemoved');
+  if(removed===0){sumEl.textContent='None active';totEl.textContent='';}
+  else{sumEl.textContent=`${removed.toLocaleString()} records excluded`;totEl.textContent=`${removed.toLocaleString()} of ${totalBefore.toLocaleString()} records excluded across all datasets`;}
 }
 
 // ═══════════════════════════════════════════
@@ -818,18 +895,29 @@ function killC(k){if(cmpCharts[k]){cmpCharts[k].destroy();delete cmpCharts[k];}}
 function renderCompare(){
   const hasData=datasets.length>0;
   document.getElementById('cmpFileList').classList.toggle('hidden',!hasData);
+  document.getElementById('cmpOutlierPanel').classList.toggle('hidden',!hasData);
   document.getElementById('compareResults').classList.toggle('hidden',datasets.length<1);
   const list=document.getElementById('fileListItems');list.innerHTML='';
   datasets.forEach((ds,i)=>{
     const chip=document.createElement('div');chip.className='file-chip';
-    chip.innerHTML=`<div class="file-chip-name"><span class="file-dot" style="background:${ds.color.solid}"></span><span><strong>${ds.label}</strong> — ${ds.data.length.toLocaleString()} records</span></div><span class="file-chip-remove" onclick="removeDataset(${i})" title="Remove">×</span>`;
+    chip.innerHTML=`<div class="file-chip-name"><span class="file-dot" style="background:${ds.color.solid}"></span><span><strong>${ds.label}</strong> — ${ds.data.length.toLocaleString()} records raw</span></div><span class="file-chip-remove" onclick="removeDataset(${i})" title="Remove">×</span>`;
     list.appendChild(chip);
   });
   if(datasets.length<1)return;
 
+  // Apply outlier filters to each dataset
+  const{fteMin,iqrK,salFloor,salCeil}=getCmpOutlierSettings();
+  const filtered=datasets.map(ds=>({
+    ...ds,
+    data:applyOutliersToData(ds.data,fteMin,iqrK,salFloor,salCeil)
+  }));
+  const totalBefore=datasets.reduce((a,ds)=>a+ds.data.length,0);
+  const totalAfter=filtered.reduce((a,ds)=>a+ds.data.length,0);
+  updateCmpOutlierSummary(totalBefore,totalAfter);
+
   // Stat cards
   const cards=document.getElementById('cmpStatCards');cards.innerHTML='';
-  datasets.forEach(ds=>{
+  filtered.forEach(ds=>{
     const sals=ds.data.map(d=>d.sal).sort((a,b)=>a-b);
     const card=document.createElement('div');card.className='cmp-card';
     card.style.cssText=`background:${ds.color.fill};border-left-color:${ds.color.solid};`;
@@ -841,7 +929,7 @@ function renderCompare(){
   const tbl=document.getElementById('cmpSummaryTable');tbl.innerHTML='';
   const hdr=`<thead><tr><th>Dataset</th><th>Records</th><th>Min</th><th>25th pct</th><th>Median</th><th>75th pct</th><th>Max</th><th>Avg exp</th></tr></thead>`;
   let tbody='<tbody>';
-  datasets.forEach(ds=>{
+  filtered.forEach(ds=>{
     const sals=ds.data.map(d=>d.sal).sort((a,b)=>a-b);
     const exps=ds.data.filter(d=>d.texp!==null);
     const avgExp=exps.length?(exps.reduce((a,b)=>a+b.texp,0)/exps.length).toFixed(1)+' yrs':'—';
@@ -851,23 +939,25 @@ function renderCompare(){
 
   // Bracket chart
   killC('bracket');
-  cmpCharts.bracket=new Chart(document.getElementById('cCmpBracket'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:datasets.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=3?Math.round(med(s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.bracket=new Chart(document.getElementById('cCmpBracket'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:filtered.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=3?Math.round(med(s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
   // Distribution overlay
   killC('dist');
-  const bk=5000,allSals=datasets.flatMap(ds=>ds.data.map(d=>d.sal));
+  const bk=5000,allSals=filtered.flatMap(ds=>ds.data.map(d=>d.sal));
   const gMin=Math.floor(Math.min(...allSals)/bk)*bk,gMax=Math.ceil(Math.max(...allSals)/bk)*bk;
   const dlabels=[];for(let v=gMin;v<gMax;v+=bk)dlabels.push('$'+(v/1000).toFixed(0)+'k');
-  cmpCharts.dist=new Chart(document.getElementById('cCmpDist'),{type:'line',data:{labels:dlabels,datasets:datasets.map(ds=>({label:ds.label,type:'line',fill:false,borderColor:ds.color.solid,backgroundColor:ds.color.fill,borderWidth:2,pointRadius:2,tension:0.4,data:dlabels.map((_,li)=>{const lo=gMin+li*bk,hi=lo+bk;return ds.data.filter(d=>d.sal>=lo&&d.sal<hi).length;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}}},scales:{x:{ticks:{color:'#888',font:{size:10},maxRotation:45,autoSkip:true},grid:{display:false}},y:{ticks:{color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'},title:{display:true,text:'# of staff',font:{size:11}}}}}});
+  cmpCharts.dist=new Chart(document.getElementById('cCmpDist'),{type:'line',data:{labels:dlabels,datasets:filtered.map(ds=>({label:ds.label,type:'line',fill:false,borderColor:ds.color.solid,backgroundColor:ds.color.fill,borderWidth:2,pointRadius:2,tension:0.4,data:dlabels.map((_,li)=>{const lo=gMin+li*bk,hi=lo+bk;return ds.data.filter(d=>d.sal>=lo&&d.sal<hi).length;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}}},scales:{x:{ticks:{color:'#888',font:{size:10},maxRotation:45,autoSkip:true},grid:{display:false}},y:{ticks:{color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'},title:{display:true,text:'# of staff',font:{size:11}}}}}});
 
   // Trend
   killC('trend');
-  cmpCharts.trend=new Chart(document.getElementById('cCmpTrend'),{type:'line',data:{labels:datasets.map(d=>d.label),datasets:[{label:'Median salary',data:datasets.map(ds=>Math.round(med(ds.data.map(d=>d.sal)))),borderColor:PALETTE[0].solid,backgroundColor:PALETTE[0].fill,borderWidth:2,pointRadius:5,pointHoverRadius:7,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.trend=new Chart(document.getElementById('cCmpTrend'),{type:'line',data:{labels:filtered.map(d=>d.label),datasets:[{label:'Median salary',data:filtered.map(ds=>Math.round(med(ds.data.map(d=>d.sal)))),borderColor:PALETTE[0].solid,backgroundColor:PALETTE[0].fill,borderWidth:2,pointRadius:5,pointHoverRadius:7,fill:true,tension:0.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
   // Spread
   killC('spread');
-  cmpCharts.spread=new Chart(document.getElementById('cCmpSpread'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:datasets.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=4?Math.round(Math.max(...s)-Math.min(...s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  cmpCharts.spread=new Chart(document.getElementById('cCmpSpread'),{type:'bar',data:{labels:BRS.map(b=>b.l+' yrs'),datasets:filtered.map(ds=>({label:ds.label,backgroundColor:ds.color.fill,borderColor:ds.color.solid,borderWidth:2,data:BRS.map(b=>{const s=ds.data.filter(d=>d.texp!==null&&d.texp>=b.lo&&d.texp<=b.hi).map(d=>d.sal);return s.length>=4?Math.round(Math.max(...s)-Math.min(...s)):null;})}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,font:{size:11},color:'#888'}},tooltip:{callbacks:{label:c=>c.raw?c.dataset.label+': '+fmt(c.raw):'—'}}},scales:{x:{ticks:{color:'#888',font:{size:12}},grid:{display:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.08)'}}}}});
 
+  // Store filtered for predictor
+  renderCompare._filtered=filtered;
   runCmpPredictor();
 }
 
@@ -879,12 +969,13 @@ function syncCmpExp(src){
   runCmpPredictor();
 }
 function runCmpPredictor(){
-  if(!datasets.length)return;
+  const filtered=renderCompare._filtered;
+  if(!filtered||!filtered.length)return;
   const exp=parseFloat(document.getElementById('cPredSlider').value);
   const box=document.getElementById('cmpPredResult');
   const br=BRS.find(b=>exp>=b.lo&&exp<=b.hi)||BRS[BRS.length-1];
   let html='<div class="pred-rows">';
-  datasets.forEach(ds=>{
+  filtered.forEach(ds=>{
     const cache={};
     const{reg,n:nR}=getReg(ds.data,cache);
     const brSals=ds.data.filter(d=>d.texp!==null&&d.texp>=br.lo&&d.texp<=br.hi).map(d=>d.sal);
